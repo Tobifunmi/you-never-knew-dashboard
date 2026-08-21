@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Usage Dashboard — You Never Knew</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f1115; color: #e8e8e8; padding: 40px 24px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.4em; margin-bottom: 4px; }
+  .timestamp { color: #888; margin-bottom: 24px; font-size: 0.9em; }
+  .refresh-btn { background: #2a2d35; color: #e8e8e8; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; margin-bottom: 24px; }
+  .refresh-btn:hover { background: #34383f; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .card { background: #1a1d24; border-radius: 10px; padding: 18px; }
+  .card.unavailable { opacity: 0.75; }
+  .card h3 { margin: 0 0 10px 0; font-size: 1.05em; }
+  .bar-bg { background: #2a2d35; border-radius: 6px; height: 10px; overflow: hidden; margin-bottom: 8px; }
+  .bar-fill { height: 100%; transition: width 0.4s ease; }
+  .meta { color: #999; font-size: 0.82em; line-height: 1.4; }
+  .loading { color: #888; padding: 40px 0; text-align: center; }
+  .error { color: #e74c3c; padding: 20px 0; }
+</style>
+</head>
+<body>
+  <h1>You Never Knew — API Usage Dashboard</h1>
+  <p class="timestamp" id="timestamp">Loading...</p>
+  <button class="refresh-btn" onclick="loadUsage()">Refresh now</button>
+  <div id="content"><div class="loading">Loading usage data...</div></div>
+
+<script>
+function renderCard(r) {
+  if (r.live) {
+    const pct = r.pct || 0;
+    const color = pct < 70 ? "#2ecc71" : (pct < 90 ? "#f39c12" : "#e74c3c");
+    return `
+      <div class="card">
+        <h3>${r.service}</h3>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(pct, 100)}%;background:${color};"></div></div>
+        <p>${r.used.toLocaleString()} / ${r.limit.toLocaleString()} used (${pct}%)</p>
+        ${r.resets ? `<p class="meta">Resets: ${r.resets}</p>` : ""}
+        ${r.note ? `<p class="meta">${r.note}</p>` : ""}
+      </div>`;
+  }
+  return `
+    <div class="card unavailable">
+      <h3>${r.service}</h3>
+      <p class="meta">${r.status || "unavailable"}</p>
+    </div>`;
+}
+
+async function loadUsage() {
+  document.getElementById("content").innerHTML = '<div class="loading">Loading usage data...</div>';
+  document.getElementById("timestamp").textContent = "Loading...";
+  try {
+    const res = await fetch("/.netlify/functions/usage", { cache: "no-store" });
+    if (!res.ok) throw new Error(`Function returned HTTP ${res.status}`);
+    const data = await res.json();
+    document.getElementById("content").innerHTML =
+      '<div class="grid">' + data.results.map(renderCard).join("") + '</div>';
+    document.getElementById("timestamp").textContent =
+      "Live as of this page load — " + new Date(data.generated_at).toLocaleString();
+  } catch (e) {
+    document.getElementById("content").innerHTML =
+      `<div class="error">Failed to load usage data: ${e.message}</div>`;
+    document.getElementById("timestamp").textContent = "";
+  }
+}
+
+loadUsage();
+</script>
+</body>
+</html>
