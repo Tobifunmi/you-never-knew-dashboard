@@ -17,6 +17,7 @@
   .bar-bg { background: #2a2d35; border-radius: 6px; height: 10px; overflow: hidden; margin-bottom: 8px; }
   .bar-fill { height: 100%; transition: width 0.4s ease; }
   .meta { color: #999; font-size: 0.82em; line-height: 1.4; }
+  .meta a { color: #6ab0f3; }
   .loading { color: #888; padding: 40px 0; text-align: center; }
   .error { color: #e74c3c; padding: 20px 0; }
 </style>
@@ -28,7 +29,15 @@
   <div id="content"><div class="loading">Loading usage data...</div></div>
 
 <script>
+function linkify(text) {
+  if (!text) return text;
+  return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
 function renderCard(r) {
+  const dashboardLink = r.dashboard_url
+    ? `<p class="meta"><a href="${r.dashboard_url}" target="_blank" rel="noopener">View full dashboard →</a></p>`
+    : "";
   if (r.live) {
     const pct = r.pct || 0;
     const color = pct < 70 ? "#2ecc71" : (pct < 90 ? "#f39c12" : "#e74c3c");
@@ -38,13 +47,15 @@ function renderCard(r) {
         <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(pct, 100)}%;background:${color};"></div></div>
         <p>${r.used.toLocaleString()} / ${r.limit.toLocaleString()} used (${pct}%)</p>
         ${r.resets ? `<p class="meta">Resets: ${r.resets}</p>` : ""}
-        ${r.note ? `<p class="meta">${r.note}</p>` : ""}
+        ${r.note ? `<p class="meta">${linkify(r.note)}</p>` : ""}
+        ${dashboardLink}
       </div>`;
   }
   return `
     <div class="card unavailable">
       <h3>${r.service}</h3>
-      <p class="meta">${r.status || "unavailable"}</p>
+      <p class="meta">${linkify(r.status || "unavailable")}</p>
+      ${dashboardLink}
     </div>`;
 }
 
