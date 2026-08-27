@@ -27,16 +27,35 @@ function fmtUnix(ts) {
   return new Date(Number(ts) * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
+function maskKey(key) {
+  if (!key) return "(empty)";
+  if (key.length <= 8) return `(${key.length} chars, too short to mask safely)`;
+  return `${key.slice(0, 4)}...${key.slice(-4)} (${key.length} chars)`;
+}
+
 async function checkElevenLabs() {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const rawApiKey = process.env.ELEVENLABS_API_KEY;
   const dashboardUrl = "https://elevenlabs.io/app/usage";
-  if (!apiKey) return { service: "ElevenLabs", live: false, status: "no API key set in Netlify env vars", dashboard_url: dashboardUrl };
+  if (!rawApiKey) return { service: "ElevenLabs", live: false, status: "no API key set in Netlify env vars", dashboard_url: dashboardUrl };
+
+  // Trims defensively — a stray leading/trailing space or newline from a
+  // copy-paste into Netlify's env var field is a common, invisible cause
+  // of "key looks right everywhere except here". If trimming is what saved
+  // this call, the masked-key debug info below still surfaces the raw
+  // length so you can go fix the value at the source rather than relying
+  // on this trim forever.
+  const apiKey = rawApiKey.trim();
 
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/user/subscription", {
       headers: { "xi-api-key": apiKey },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      throw new Error(
+        `HTTP ${res.status} — key Netlify is using: ${maskKey(rawApiKey)}` +
+        (rawApiKey !== apiKey ? " [had leading/trailing whitespace, trimmed before use]" : "")
+      );
+    }
     const data = await res.json();
     const used = data.character_count || 0;
     const limit = data.character_limit || 0;
