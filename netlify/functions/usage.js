@@ -167,18 +167,18 @@ function checkSelfTracked(log, key, displayName, dashboardUrl) {
     return {
       service: displayName,
       live: false,
-      status: `no usage_log.json found in repo yet — self-tracking hasn't logged any calls, or GITHUB_REPO isn't set correctly. Check manually: ${dashboardUrl}`,
+      status: `no usage_log.json found in repo yet — self-tracking hasn't logged any calls, or GITHUB_REPO isn't set correctly.`,
       dashboard_url: dashboardUrl,
     };
   }
   const entry = log[key];
   if (!entry || !entry.count) {
-    return { service: displayName, live: false, status: `no calls logged yet. Check manually: ${dashboardUrl}`, dashboard_url: dashboardUrl };
+    return { service: displayName, live: false, status: `no calls logged yet.`, dashboard_url: dashboardUrl };
   }
   return {
     service: displayName,
     live: false,
-    status: `self-tracked: ${entry.count} calls logged since ${entry.since || "unknown"} (last: ${entry.last_call || "unknown"}). For real quota: ${dashboardUrl}`,
+    status: `self-tracked: ${entry.count} calls logged since ${entry.since || "unknown"} (last: ${entry.last_call || "unknown"}).`,
     dashboard_url: dashboardUrl,
   };
 }
@@ -189,7 +189,7 @@ function checkYouTubeEstimate(log) {
     return {
       service: "YouTube Data API",
       live: false,
-      status: `no usage_log.json found in repo yet. Check manually: ${dashboardUrl}`,
+      status: `no usage_log.json found in repo yet.`,
       dashboard_url: dashboardUrl,
     };
   }
@@ -209,13 +209,13 @@ function checkYouTubeEstimate(log) {
   }
 
   if (totalCalls === 0) {
-    return { service: "YouTube Data API", live: false, status: `no calls logged yet. Check manually: ${dashboardUrl}`, dashboard_url: dashboardUrl };
+    return { service: "YouTube Data API", live: false, status: `no calls logged yet.`, dashboard_url: dashboardUrl };
   }
 
   return {
     service: "YouTube Data API",
     live: false,
-    status: `self-tracked, ALL-TIME estimate: ~${totalUnits.toLocaleString()} quota units (${breakdown.join("; ")}). Default daily budget is 10,000 units — this is cumulative, not today's usage. Authoritative source: ${dashboardUrl}`,
+    status: `self-tracked, ALL-TIME estimate: ~${totalUnits.toLocaleString()} quota units (${breakdown.join("; ")}). Default daily budget is 10,000 units — this is cumulative, not today's usage.`,
     dashboard_url: dashboardUrl,
   };
 }
