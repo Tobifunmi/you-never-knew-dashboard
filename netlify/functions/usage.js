@@ -48,8 +48,16 @@ async function checkPexels() {
   if (!apiKey) return { service: "Pexels", live: false, status: "no API key set in Netlify env vars", dashboard_url: dashboardUrl };
 
   try {
-    const res = await fetch("https://api.pexels.com/videos/search?query=nature&per_page=1", {
-      headers: { Authorization: apiKey },
+    // Cache-bust: an identical repeated query ("nature", per_page=1) risks
+    // getting served from Pexels' own response cache, which can return
+    // stale/frozen rate-limit headers from whenever that response was
+    // first cached rather than the account's actual current usage — this
+    // showed up as the dashboard's "used" number never moving even as
+    // real usage climbed. A random per-request query param forces a
+    // fresh, uncached response every time.
+    const cacheBust = Math.random().toString(36).slice(2);
+    const res = await fetch(`https://api.pexels.com/videos/search?query=nature&per_page=1&_=${cacheBust}`, {
+      headers: { Authorization: apiKey, "Cache-Control": "no-cache" },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const limit = res.headers.get("x-ratelimit-limit");
@@ -79,7 +87,14 @@ async function checkPixabay() {
   if (!apiKey) return { service: "Pixabay", live: false, status: "no API key set in Netlify env vars", dashboard_url: dashboardUrl };
 
   try {
-    const res = await fetch(`https://pixabay.com/api/videos/?key=${apiKey}&q=nature&per_page=3`);
+    // Same cache-busting defense as checkPexels() — Pixabay's own
+    // number hasn't shown the frozen-value symptom Pexels did, but an
+    // identical repeated query risks the same failure mode, so this is
+    // preventive rather than a confirmed fix for an observed bug here.
+    const cacheBust = Math.random().toString(36).slice(2);
+    const res = await fetch(`https://pixabay.com/api/videos/?key=${apiKey}&q=nature&per_page=3&_=${cacheBust}`, {
+      headers: { "Cache-Control": "no-cache" },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const limit = res.headers.get("x-ratelimit-limit");
     const remaining = res.headers.get("x-ratelimit-remaining");
