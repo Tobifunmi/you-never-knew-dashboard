@@ -27,50 +27,19 @@ function fmtUnix(ts) {
   return new Date(Number(ts) * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
-function maskKey(key) {
-  if (!key) return "(empty)";
-  if (key.length <= 8) return `(${key.length} chars, too short to mask safely)`;
-  return `${key.slice(0, 4)}...${key.slice(-4)} (${key.length} chars)`;
-}
-
-async function checkElevenLabs() {
-  const rawApiKey = process.env.ELEVENLABS_API_KEY;
-  const dashboardUrl = "https://elevenlabs.io/app/usage";
-  if (!rawApiKey) return { service: "ElevenLabs", live: false, status: "no API key set in Netlify env vars", dashboard_url: dashboardUrl };
-
-  // Trims defensively — a stray leading/trailing space or newline from a
-  // copy-paste into Netlify's env var field is a common, invisible cause
-  // of "key looks right everywhere except here". If trimming is what saved
-  // this call, the masked-key debug info below still surfaces the raw
-  // length so you can go fix the value at the source rather than relying
-  // on this trim forever.
-  const apiKey = rawApiKey.trim();
-
-  try {
-    const res = await fetch("https://api.elevenlabs.io/v1/user/subscription", {
-      headers: { "xi-api-key": apiKey },
-    });
-    if (!res.ok) {
-      throw new Error(
-        `HTTP ${res.status} — key Netlify is using: ${maskKey(rawApiKey)}` +
-        (rawApiKey !== apiKey ? " [had leading/trailing whitespace, trimmed before use]" : "")
-      );
-    }
-    const data = await res.json();
-    const used = data.character_count || 0;
-    const limit = data.character_limit || 0;
-    return {
-      service: "ElevenLabs",
-      live: true,
-      used,
-      limit,
-      pct: limit ? Math.round((used / limit) * 1000) / 10 : 0,
-      resets: fmtUnix(data.next_character_count_reset_unix),
-      dashboard_url: dashboardUrl,
-    };
-  } catch (e) {
-    return { service: "ElevenLabs", live: false, status: `error: ${e.message}`, dashboard_url: dashboardUrl };
-  }
+function checkKokoro(log) {
+  // Kokoro runs 100% locally — no external API, no account, no quota.
+  // Not a "live" check like the others; just surfaces the local
+  // production count so the dashboard still shows something real for
+  // the engine actually narrating every video, instead of a frozen
+  // ElevenLabs number nothing calls anymore.
+  const dashboardUrl = "https://huggingface.co/hexgrad/Kokoro-82M";
+  const entry = log && log.kokoro;
+  const count = entry && entry.count ? entry.count : 0;
+  const status = count
+    ? `runs 100% locally — no usage cap or account. ${count} video(s) narrated so far.`
+    : "runs 100% locally — no usage cap or account. No videos narrated yet.";
+  return { service: "Kokoro (narration)", live: false, status, dashboard_url: dashboardUrl };
 }
 
 async function checkPexels() {
@@ -221,23 +190,21 @@ function checkYouTubeEstimate(log) {
 }
 
 exports.handler = async function () {
-  const [elevenlabs, pexels, pixabay, usageLog] = await Promise.all([
-    checkElevenLabs(),
+  const [pexels, pixabay, usageLog] = await Promise.all([
     checkPexels(),
     checkPixabay(),
     fetchUsageLog(),
   ]);
 
-  // ElevenLabs/Pexels/Pixabay have a LIVE quota % already, but no notion
-  // of "videos" — layer the self-tracked call/video correlation on top
+  // Pexels/Pixabay have a LIVE quota % already, but no notion of
+  // "videos" — layer the self-tracked call/video correlation on top
   // as a supplementary note so a video that burned unusual credits is
   // visible even though the live percentage alone can't show that.
-  elevenlabs.note = selfTrackedNote(usageLog, "elevenlabs") || elevenlabs.note || null;
   pexels.note = selfTrackedNote(usageLog, "pexels") || pexels.note || null;
   pixabay.note = selfTrackedNote(usageLog, "pixabay") || pixabay.note || null;
 
   const results = [
-    elevenlabs,
+    checkKokoro(usageLog),
     pexels,
     pixabay,
     checkSelfTracked(usageLog, "jamendo", "Jamendo", "https://devportal.jamendo.com/"),
